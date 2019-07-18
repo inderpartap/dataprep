@@ -7,7 +7,10 @@ from typing import Any, Optional, Dict
 import dask
 import numpy as np
 import pandas as pd
+from bokeh.io import show
 from dataprep.eda.common import Intermediate
+from dataprep.eda.vis_plot_pred import _vis_pred_corr, \
+    _vis_pred_stat, _vis_pred_relation
 from dataprep.utils import DataType, get_type, \
     _drop_non_numerical_columns
 
@@ -270,12 +273,18 @@ def plot_prediction(
             y_name=y_name,
             target_type=target_type
         )
+        fig = _vis_pred_relation(
+            intermediate=intermediate
+        )
     elif x_name is not None:
         intermediate = _calc_pred_stat(
             pd_data_frame=pd_data_frame,
             target=target,
             x_name=x_name,
             target_type=target_type
+        )
+        fig = _vis_pred_stat(
+            intermediate=intermediate
         )
     elif x_name is None and y_name is not None:
         raise ValueError("Please give a value to x_name")
@@ -288,8 +297,12 @@ def plot_prediction(
                 pd_data_frame=pd_data_frame,
                 target=target
             )
+            fig = _vis_pred_corr(
+                intermediate=intermediate
+            )
         else:
             raise ValueError("Target column's type should be numerical")
+    show(fig)
     if return_intermediate:
-        return intermediate
-    return None
+        return fig, intermediate
+    return fig
