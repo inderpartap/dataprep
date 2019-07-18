@@ -6,7 +6,7 @@ import random
 import string
 from enum import Enum
 from typing import Any
-
+import dask
 import dask.dataframe as dd
 import pandas as pd
 from IPython import get_ipython
@@ -40,7 +40,8 @@ def get_type(data: dd.Series) -> DataType:
     try:
         if pd.api.types.is_bool_dtype(data):
             col_type = DataType.TYPE_CAT
-        elif pd.api.types.is_numeric_dtype(data) and data.dropna().unique().size.compute() == 2:
+        elif pd.api.types.is_numeric_dtype(data) and dask.compute(
+                data.dropna().unique().size) == 2:
             col_type = DataType.TYPE_CAT
         elif pd.api.types.is_numeric_dtype(data):
             col_type = DataType.TYPE_NUM
@@ -75,3 +76,42 @@ def _rand_str(
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters)
                    for _ in range(str_length))
+
+
+def _is_categorical(
+        df_column: pd.Series
+) -> Any:
+    """
+    :param df_column: a column of data frame
+    :return: whether it is categorical
+    """
+    return df_column.dtype.name == 'category'
+
+
+def _is_not_numerical(
+        df_column: pd.Series
+) -> Any:
+    """
+    :param df_column: a column of data frame
+    :return: whether it is not numerical
+    """
+    return df_column.dtype.name == 'category' or \
+        df_column.dtype.name == 'object' or \
+        df_column.dtype.name == 'datetime64[ns]'
+
+
+def _drop_non_numerical_columns(
+        pd_data_frame: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    :param pd_data_frame: the pandas data_frame for
+    which plots are calculated for each column.
+    :return: the numerical pandas data_frame for
+    which plots are calculated for each column.
+    """
+    drop_list = []
+    for column_name in pd_data_frame.columns.values:
+        if _is_not_numerical(pd_data_frame[column_name]):
+            drop_list.append(column_name)
+    pd_data_frame.drop(columns=drop_list)
+    return pd_data_frame

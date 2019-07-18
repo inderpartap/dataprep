@@ -12,6 +12,8 @@ from bokeh.models import HoverTool
 from bokeh.plotting import figure, Figure
 from scipy.stats import kendalltau
 from dataprep.eda.common import Intermediate
+from dataprep.utils import _is_categorical, _is_not_numerical, \
+    _drop_non_numerical_columns
 
 
 def _calc_kendall(
@@ -38,45 +40,6 @@ def _value_to_rank(
     """
     array_ranks = pd.Series(array).rank()
     return array_ranks.values
-
-
-def _is_categorical(
-        df_column: pd.Series
-) -> Any:
-    """
-    :param df_column: a column of data frame
-    :return: whether it is categorical
-    """
-    return df_column.dtype.name == 'category'
-
-
-def _is_not_numerical(
-        df_column: pd.Series
-) -> Any:
-    """
-    :param df_column: a column of data frame
-    :return: whether it is not numerical
-    """
-    return df_column.dtype.name == 'category' or \
-        df_column.dtype.name == 'object' or \
-        df_column.dtype.name == 'datetime64[ns]'
-
-
-def _drop_non_numerical_columns(
-        pd_data_frame: pd.DataFrame
-) -> pd.DataFrame:
-    """
-    :param pd_data_frame: the pandas data_frame for
-    which plots are calculated for each column.
-    :return: the numerical pandas data_frame for
-    which plots are calculated for each column.
-    """
-    drop_list = []
-    for column_name in pd_data_frame.columns.values:
-        if _is_not_numerical(pd_data_frame[column_name]):
-            drop_list.append(column_name)
-    pd_data_frame.drop(columns=drop_list)
-    return pd_data_frame
 
 
 def _discard_unused_visual_elems(

@@ -5,70 +5,11 @@
 from typing import Any, Optional, Dict
 
 import dask
-import dask.dataframe as dd
-import logging
 import numpy as np
 import pandas as pd
-from enum import Enum
 from dataprep.eda.common import Intermediate
-
-LOGGER = logging.getLogger(__name__)
-
-
-class DataType(Enum):
-    """
-        Enumeration for storing the different types of data possible in a column
-    """
-    TYPE_NUM = 1
-    TYPE_CAT = 2
-    TYPE_UNSUP = 3
-
-
-def get_type(data: dd.Series) -> DataType:
-    """ Returns the type of the input data.
-        Identified types are according to the DataType Enumeration.
-
-    Parameter
-    __________
-    The data for which the type needs to be identified.
-
-    Returns
-    __________
-    str representing the type of the data.
-    """
-
-    col_type = DataType.TYPE_UNSUP
-    try:
-        if pd.api.types.is_bool_dtype(data):
-            col_type = DataType.TYPE_CAT
-        elif pd.api.types.is_numeric_dtype(data) and dask.compute(
-                data.dropna().unique().size) == 2:
-            col_type = DataType.TYPE_CAT
-        elif pd.api.types.is_numeric_dtype(data):
-            col_type = DataType.TYPE_NUM
-        else:
-            col_type = DataType.TYPE_CAT
-    except NotImplementedError as error:  # TO-DO
-        LOGGER.info("Type cannot be determined due to : %s", error)
-
-    return col_type
-
-
-def _drop_non_numerical_columns(
-        pd_data_frame: pd.DataFrame
-) -> pd.DataFrame:
-    """
-    :param pd_data_frame: the pandas data_frame for
-    which plots are calculated for each column.
-    :return: the numerical pandas data_frame for
-    which plots are calculated for each column.
-    """
-    drop_list = []
-    for column_name in pd_data_frame.columns.values:
-        if get_type(pd_data_frame[column_name]) != DataType.TYPE_NUM:
-            drop_list.append(column_name)
-    pd_data_frame.drop(columns=drop_list)
-    return pd_data_frame
+from dataprep.utils import DataType, get_type, \
+    _drop_non_numerical_columns
 
 
 def _calc_corr(
@@ -256,44 +197,42 @@ def _calc_pred_relation(
     """
     x_type = get_type(pd_data_frame[x_name])
     y_type = get_type(pd_data_frame[y_name])
-    if target_type != DataType.TYPE_CAT and \
-            target_type != DataType.TYPE_NUM:
+    if target_type not in (DataType.TYPE_CAT, DataType.TYPE_NUM):
         raise ValueError("Target column's type should be "
                          "categorical or numerical")
-    else:
-        intermediate_x = _calc_pred_stat(
-            pd_data_frame=pd_data_frame,
-            target=target,
-            x_name=x_name,
-            target_type=target_type
+    intermediate_x = _calc_pred_stat(
+        pd_data_frame=pd_data_frame,
+        target=target,
+        x_name=x_name,
+        target_type=target_type
+    )
+    intermediate_y = _calc_pred_stat(
+        pd_data_frame=pd_data_frame,
+        target=target,
+        x_name=y_name,
+        target_type=target_type
+    )
+    result = {
+        'stats_comp_x': intermediate_x.result['stats_comp'],
+        'stats_comp_y': intermediate_y.result['stats_comp']
+    }
+    raw_data = {
+        'df': intermediate_x.raw_data['df'],
+        'target': intermediate_x.raw_data['target'],
+        'x_name': intermediate_x.raw_data['x_name'],
+        'y_name': intermediate_y.raw_data['x_name'],
+        'target_type': intermediate_x.raw_data['target_type']
+    }
+    intermediate = Intermediate(
+        result=result,
+        raw_data=raw_data
+    )
+    if x_type == DataType.TYPE_NUM and \
+            y_type == DataType.TYPE_NUM:
+        intermediate = _calc_scatter(
+            intermediate=intermediate
         )
-        intermediate_y = _calc_pred_stat(
-            pd_data_frame=pd_data_frame,
-            target=target,
-            x_name=y_name,
-            target_type=target_type
-        )
-        result = {
-            'stats_comp_x': intermediate_x.result['stats_comp'],
-            'stats_comp_y': intermediate_y.result['stats_comp']
-        }
-        raw_data = {
-            'df': intermediate_x.raw_data['df'],
-            'target': intermediate_x.raw_data['target'],
-            'x_name': intermediate_x.raw_data['x_name'],
-            'y_name': intermediate_y.raw_data['x_name'],
-            'target_type': intermediate_x.raw_data['target_type']
-        }
-        intermediate = Intermediate(
-            result=result,
-            raw_data=raw_data
-        )
-        if x_type == DataType.TYPE_NUM and \
-                y_type == DataType.TYPE_NUM:
-            intermediate = _calc_scatter(
-                intermediate=intermediate
-            )
-        return intermediate
+    return intermediate
 
 
 def plot_prediction(
@@ -320,40 +259,37 @@ def plot_prediction(
         otherwise => error
     """
     target_type = get_type(pd_data_frame[target])
-    if target_type != DataType.TYPE_NUM and \
-            target_type != DataType.TYPE_CAT:
+    if target_type not in (DataType.TYPE_NUM, DataType.TYPE_CAT):
         raise ValueError("Target column's type should "
                          "be categorical or numerical")
+    if x_name is not None and y_name is not None:
+        intermediate = _calc_pred_relation(
+            pd_data_frame=pd_data_frame,
+            target=target,
+            x_name=x_name,
+            y_name=y_name,
+            target_type=target_type
+        )
+    elif x_name is not None:
+        intermediate = _calc_pred_stat(
+            pd_data_frame=pd_data_frame,
+            target=target,
+            x_name=x_name,
+            target_type=target_type
+        )
+    elif x_name is None and y_name is not None:
+        raise ValueError("Please give a value to x_name")
     else:
-        if x_name is not None and y_name is not None:
-            intermediate = _calc_pred_relation(
-                pd_data_frame=pd_data_frame,
-                target=target,
-                x_name=x_name,
-                y_name=y_name,
-                target_type=target_type
+        if target_type == DataType.TYPE_NUM:
+            pd_data_frame = _drop_non_numerical_columns(
+                pd_data_frame=pd_data_frame
             )
-        elif x_name is not None:
-            intermediate = _calc_pred_stat(
+            intermediate = _calc_pred_corr(
                 pd_data_frame=pd_data_frame,
-                target=target,
-                x_name=x_name,
-                target_type=target_type
+                target=target
             )
-        elif x_name is None and y_name is not None:
-            raise ValueError("Please give a value to x_name")
         else:
-            if target_type == DataType.TYPE_NUM:
-                pd_data_frame = _drop_non_numerical_columns(
-                    pd_data_frame=pd_data_frame
-                )
-                intermediate = _calc_pred_corr(
-                    pd_data_frame=pd_data_frame,
-                    target=target
-                )
-            else:
-                raise ValueError("Target column's type should be numerical")
+            raise ValueError("Target column's type should be numerical")
     if return_intermediate:
         return intermediate
-    else:
-        pass
+    return None
