@@ -12,8 +12,7 @@ from bokeh.models import HoverTool
 from bokeh.plotting import figure, Figure
 from scipy.stats import kendalltau
 from dataprep.eda.common import Intermediate
-from dataprep.utils import _is_categorical, _is_not_numerical, \
-    _drop_non_numerical_columns
+from dataprep.utils import _drop_non_numerical_columns, DataType, get_type
 
 
 def _calc_kendall(
@@ -578,8 +577,8 @@ def plot_correlation(  # pylint: disable=too-many-arguments
         otherwise => error
     """
     if x_name is not None and y_name is not None:
-        if _is_categorical(pd_data_frame[x_name]) and \
-                _is_categorical(pd_data_frame[y_name]):
+        if get_type(pd_data_frame[x_name]) == DataType.TYPE_CAT and \
+                get_type(pd_data_frame[y_name]) == DataType.TYPE_CAT:
             intermediate = _calc_cross_table(
                 pd_data_frame=pd_data_frame,
                 x_name=x_name,
@@ -588,20 +587,22 @@ def plot_correlation(  # pylint: disable=too-many-arguments
             fig = _vis_cross_table(
                 intermediate=intermediate
             )
-        elif not _is_not_numerical(pd_data_frame[x_name]) and \
-                not _is_not_numerical(pd_data_frame[y_name]):
+        elif not get_type(pd_data_frame[x_name]) != DataType.TYPE_NUM and \
+                not get_type(pd_data_frame[y_name]) != DataType.TYPE_NUM:
             intermediate = _calc_correlation_pd_x_y_k(
                 pd_data_frame=pd_data_frame,
                 x_name=x_name,
                 y_name=y_name,
                 k=k
             )
-            fig = _vis_correlation_pd_x_y_k(intermediate)
+            fig = _vis_correlation_pd_x_y_k(
+                intermediate=intermediate
+            )
         else:
             raise ValueError("Cannot calculate the correlation "
                              "between two different dtype column")
     elif x_name is not None and k is not None:
-        if _is_not_numerical(pd_data_frame[x_name]):
+        if get_type(pd_data_frame[x_name]) != DataType.TYPE_NUM:
             raise ValueError("The dtype of data frame column "
                              "should be numerical")
         pd_data_frame = _drop_non_numerical_columns(

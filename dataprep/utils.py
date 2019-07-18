@@ -78,28 +78,6 @@ def _rand_str(
                    for _ in range(str_length))
 
 
-def _is_categorical(
-        df_column: pd.Series
-) -> Any:
-    """
-    :param df_column: a column of data frame
-    :return: whether it is categorical
-    """
-    return df_column.dtype.name == 'category'
-
-
-def _is_not_numerical(
-        df_column: pd.Series
-) -> Any:
-    """
-    :param df_column: a column of data frame
-    :return: whether it is not numerical
-    """
-    return df_column.dtype.name == 'category' or \
-        df_column.dtype.name == 'object' or \
-        df_column.dtype.name == 'datetime64[ns]'
-
-
 def _drop_non_numerical_columns(
         pd_data_frame: pd.DataFrame
 ) -> pd.DataFrame:
@@ -111,7 +89,7 @@ def _drop_non_numerical_columns(
     """
     drop_list = []
     for column_name in pd_data_frame.columns.values:
-        if _is_not_numerical(pd_data_frame[column_name]):
+        if get_type(pd_data_frame[column_name]) != DataType.TYPE_NUM:
             drop_list.append(column_name)
     pd_data_frame.drop(columns=drop_list)
     return pd_data_frame
