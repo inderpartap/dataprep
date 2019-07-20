@@ -2,12 +2,13 @@
     This module implements the plot_prediction(df, target) function's
     calculating intermediate part
 """
-from typing import Any, Optional, Dict
+from typing import Any, Dict, Optional, Union, Tuple
 
 import dask
 import numpy as np
 import pandas as pd
 from bokeh.io import show
+from bokeh.plotting import Figure
 from dataprep.eda.common import Intermediate
 from dataprep.eda.vis_plot_pred import _vis_pred_corr, \
     _vis_pred_stat, _vis_pred_relation
@@ -18,7 +19,7 @@ from dataprep.utils import DataType, get_type, \
 def _calc_corr(
         data_a: np.ndarray,
         data_b: np.ndarray
-) -> Any:
+) -> np.float64:
     """
     :param data_a: the column of data frame
     :param data_b: the column of data frame
@@ -71,7 +72,7 @@ def _calc_df_sum(
 def _calc_pred_corr(
         pd_data_frame: pd.DataFrame,
         target: str
-) -> Any:
+) -> Intermediate:
     """
     :param pd_data_frame: the pandas data_frame for which plots are calculated for each
     column.
@@ -85,44 +86,62 @@ def _calc_pred_corr(
     corr_list = []
     for i, _ in enumerate(columns_name):
         tmp = dask.delayed(_calc_corr)(
-            cal_matrix[i, :], cal_matrix[name_idx, :])
+            data_a=cal_matrix[i, :],
+            data_b=cal_matrix[name_idx, :]
+        )
         corr_list.append(tmp)
     corr_comp = dask.compute(*corr_list)
     pred_score = [(columns_name[i], corr_comp[i])
                   for i, _ in enumerate(columns_name)]
-    result = {'pred_score': pred_score}
-    raw_data = {'df': pd_data_frame}
-    intermediate = Intermediate(result=result, raw_data=raw_data)
+    result = {
+        'pred_score': pred_score
+    }
+    raw_data = {
+        'df': pd_data_frame
+    }
+    intermediate = Intermediate(
+        result=result,
+        raw_data=raw_data
+    )
     return intermediate
 
 
-def _calc_pred_stat(
+def _calc_pred_stat(  # pylint: disable=too-many-locals
         pd_data_frame: pd.DataFrame,
         target: str,
         x_name: str,
-        target_type: DataType
-) -> Any:
+        target_type: DataType,
+        num_bins: int = 10
+) -> Intermediate:
     """
     :param pd_data_frame: the pandas data_frame for which plots are calculated for each
     column.
     :param target: The target colume name of the data frame
     :param x_name: The colume name of the data frame
+    :param num_bins: The number of bins when the target column is numerical
     :return: An object to encapsulate the
     intermediate results.
     """
-    x_type = get_type(pd_data_frame[x_name])
+    column_name_list = pd_data_frame.columns.values
+    for column_name in column_name_list:
+        if column_name != target and \
+                get_type(pd_data_frame[column_name]) != DataType.TYPE_NUM:
+            raise ValueError("The type of data frame is error")
     stats_list = []
+    pd_data_frame_cal = pd_data_frame[[target, x_name]]
     if target_type == DataType.TYPE_CAT:
-        target_groupby = pd_data_frame.groupby(target)
+        target_groupby = pd_data_frame_cal.groupby(target)
     elif target_type == DataType.TYPE_NUM:
-        min_value = pd_data_frame[target].min()
-        max_value = pd_data_frame[target].max()
-        target_groupby = pd_data_frame.groupby(
+        min_value = pd_data_frame_cal[target].min()
+        max_value = pd_data_frame_cal[target].max()
+        target_groupby = pd_data_frame_cal.groupby(
             pd.cut(
-                pd_data_frame[target],
-                np.arange(min_value,
-                          max_value + 1,
-                          (max_value - min_value) / 10)
+                pd_data_frame_cal[target],
+                np.arange(
+                    min_value,
+                    max_value,
+                    (max_value - min_value) / num_bins
+                )
             )
         )
     else:
@@ -131,13 +150,7 @@ def _calc_pred_stat(
     stats_list.append(dask.delayed(_calc_df_max)(target_groupby))
     stats_list.append(dask.delayed(_calc_df_min)(target_groupby))
     stats_list.append(dask.delayed(_calc_df_sum)(target_groupby))
-    if x_type == DataType.TYPE_NUM:
-        stats_list.append(dask.delayed(_calc_df_mean)(target_groupby))
-    elif x_type == DataType.TYPE_CAT:
-        pass
-    else:
-        raise ValueError("The x column's type should "
-                         "be categorical or numerical")
+    stats_list.append(dask.delayed(_calc_df_mean)(target_groupby))
     stats_comp = dask.compute(*stats_list)
     result = {
         'stats_comp': stats_comp
@@ -157,7 +170,7 @@ def _calc_pred_stat(
 
 def _calc_scatter(
         intermediate: Intermediate
-) -> Any:
+) -> Intermediate:
     """
     :param intermediate:  An object to encapsulate the
     intermediate results.
@@ -172,13 +185,16 @@ def _calc_scatter(
     for num, key in enumerate(df_sel_value[:, 0]):
         if key not in loc_dict.keys():
             loc_dict[key] = []
-            loc_dict[key].append((df_sel_value[num, 1],
-                                  df_sel_value[num, 2]))
+            loc_dict[key].append(
+                (df_sel_value[num, 1],
+                 df_sel_value[num, 2])
+            )
         else:
-            loc_dict[key].append((df_sel_value[num, 1],
-                                  df_sel_value[num, 2]))
+            loc_dict[key].append(
+                (df_sel_value[num, 1],
+                 df_sel_value[num, 2])
+            )
     intermediate.result['scatter_location'] = loc_dict
-    print(loc_dict)
     return intermediate
 
 
@@ -188,7 +204,7 @@ def _calc_pred_relation(
         x_name: str,
         y_name: str,
         target_type: DataType
-) -> Any:
+) -> Intermediate:
     """
     :param pd_data_frame: the pandas data_frame for which plots are calculated for each
     column.
@@ -198,6 +214,11 @@ def _calc_pred_relation(
     :return: An object to encapsulate the
     intermediate results.
     """
+    column_name_list = pd_data_frame.columns.values
+    for column_name in column_name_list:
+        if column_name != target and \
+                get_type(pd_data_frame[column_name]) != DataType.TYPE_NUM:
+            raise ValueError("The type of data frame is error")
     x_type = get_type(pd_data_frame[x_name])
     y_type = get_type(pd_data_frame[y_name])
     if target_type not in (DataType.TYPE_CAT, DataType.TYPE_NUM):
@@ -244,7 +265,7 @@ def plot_prediction(
         x_name: Optional[str] = None,
         y_name: Optional[str] = None,
         return_intermediate: bool = False
-) -> Any:
+) -> Union[Figure, Tuple[Figure, Any]]:
     """
     :param pd_data_frame: the pandas data_frame for which plots are calculated for each
     column.
@@ -256,9 +277,9 @@ def plot_prediction(
     intermediate results.
 
     match (x_name, y_name)
-        case (Some, Some) =>
-        case (Some, None) =>
-        case (None, None) => heatmap
+        case (Some, Some) => Bars + Optional(Scatter)
+        case (Some, None) => Bars
+        case (None, None) => Heatmap
         otherwise => error
     """
     target_type = get_type(pd_data_frame[target])

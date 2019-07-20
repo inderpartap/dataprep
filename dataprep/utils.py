@@ -91,5 +91,5 @@ def _drop_non_numerical_columns(
     for column_name in pd_data_frame.columns.values:
         if get_type(pd_data_frame[column_name]) != DataType.TYPE_NUM:
             drop_list.append(column_name)
-    pd_data_frame.drop(columns=drop_list)
+    pd_data_frame = pd_data_frame.drop(columns=drop_list)
     return pd_data_frame
