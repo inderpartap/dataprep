@@ -8,14 +8,17 @@ import dask
 import numpy as np
 import pandas as pd
 from bokeh.io import show
+from bokeh.plotting import Figure
 from dataprep.eda.common import Intermediate
+from dataprep.eda.vis_plot_miss import _vis_none_count, \
+    _vis_drop_columns, _vis_drop_y
 from dataprep.utils import get_type, DataType
 
 
 def _calc_none_sum(
         data: np.ndarray,
         length: int
-) -> float:
+) -> Any:
     """
     :param data: A column of data frame
     :param length: The length of array
@@ -127,7 +130,7 @@ def plot_missing(
         x_name: Optional[str] = None,
         y_name: Optional[str] = None,
         return_intermediate: bool = False
-) -> Any:
+) -> Union[Figure, Tuple[Figure, Any]]:
     """
     :param pd_data_frame: the pandas data_frame for which plots are calculated for each
     column.
@@ -157,10 +160,16 @@ def plot_missing(
             x_name=x_name,
             y_name=y_name
         )
+        fig = _vis_drop_y(
+            intermediate=intermediate
+        )
     elif x_name is not None:
         intermediate = _calc_drop_columns(
             pd_data_frame=pd_data_frame,
             x_name=x_name
+        )
+        fig = _vis_drop_columns(
+            intermediate=intermediate
         )
     elif x_name is None and y_name is not None:
         raise ValueError("Please give a value to x_name")
@@ -168,6 +177,10 @@ def plot_missing(
         intermediate = _calc_none_count(
             pd_data_frame=pd_data_frame
         )
+        fig = _vis_none_count(
+            intermediate=intermediate
+        )
+    show(fig)
     if return_intermediate:
-        return intermediate
-    return None
+        return fig, intermediate
+    return fig
