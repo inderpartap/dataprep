@@ -3,12 +3,14 @@
 """
 from typing import Any, Optional, Union, Tuple
 
+import math
 import dask
 import holoviews as hv
 import numpy as np
 import pandas as pd
 from bokeh.io import show
 from bokeh.models import HoverTool
+from bokeh.models.annotations import Title
 from bokeh.plotting import figure, Figure
 from scipy.stats import kendalltau
 from dataprep.eda.common import Intermediate
@@ -85,6 +87,12 @@ def _vis_correlation_pd(  # pylint: disable=too-many-locals
         title="heatmap_" + method
     )
     fig = hv.render(heatmap, backend='bokeh')
+    fig.plot_width = 400
+    fig.plot_height = 400
+    title = Title()
+    title.text = method + ' correlation matrix'
+    fig.title = title
+    fig.xaxis.major_label_orientation = math.pi / 2
     _discard_unused_visual_elems(fig)
     return fig
 
@@ -125,6 +133,11 @@ def _vis_correlation_pd_x_k(  # pylint: disable=too-many-locals
         heatmap,
         backend='bokeh'
     )
+    fig.plot_width = 400
+    fig.plot_height = 400
+    title = Title()
+    title.text = 'most correlated columns to ' + intermediate.raw_data['x_name']
+    fig.title = title
     _discard_unused_visual_elems(fig)
     return fig
 
@@ -168,7 +181,8 @@ def _vis_correlation_pd_x_y_k(
                 color=color,
                 alpha=0.5
             )
-
+    else:
+        fig.legend.visible = False
     fig.line(
         sample_x,
         sample_y,
@@ -176,6 +190,11 @@ def _vis_correlation_pd_x_y_k(
     )
     fig.toolbar_location = None
     fig.toolbar.active_drag = None
+    title = Title()
+    title.text = 'scatter plot'
+    fig.title = title
+    fig.xaxis.axis_label = intermediate.raw_data['x_name']
+    fig.yaxis.axis_label = intermediate.raw_data['y_name']
     return fig
 
 
