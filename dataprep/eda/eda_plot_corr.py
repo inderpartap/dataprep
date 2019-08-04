@@ -9,6 +9,7 @@ import holoviews as hv
 import numpy as np
 import pandas as pd
 from bokeh.io import show
+from bokeh.layouts import gridplot
 from bokeh.models import HoverTool
 from bokeh.models.annotations import Title
 from bokeh.plotting import figure, Figure
@@ -76,6 +77,8 @@ def _vis_correlation_pd(  # pylint: disable=too-many-locals
                          name_list[j],
                          corr_matrix[i, j]))
     tooltips = [
+        ('x', '@x'),
+        ('y', '@y'),
         ('z', '@z'),
     ]
     hover = HoverTool(tooltips=tooltips)
@@ -91,6 +94,7 @@ def _vis_correlation_pd(  # pylint: disable=too-many-locals
     fig.plot_height = 400
     title = Title()
     title.text = method + ' correlation matrix'
+    title.align = 'center'
     fig.title = title
     fig.xaxis.major_label_orientation = math.pi / 2
     _discard_unused_visual_elems(fig)
@@ -106,39 +110,73 @@ def _vis_correlation_pd_x_k(  # pylint: disable=too-many-locals
     :return: A figure object
     """
     result = intermediate.result
-    hv.extension('bokeh', logo=False)
+    hv.extension('bokeh',
+                 logo=False)
     corr_matrix = np.array([result['pearson'],
                             result['spearman'],
                             result['kendall']])
-    method_list = ['pearson', 'spearman', 'kendall']
-    data = []
-    for i, method_name in enumerate(method_list):
-        for j, _ in enumerate(result['col_' + method_name[0]]):
-            data.append((method_list[i],
-                         result['col_' + method_name[0]][j],
-                         corr_matrix[i, j]))
+    data_p = []
+    data_s = []
+    data_k = []
+    for i, _ in enumerate(result['col_p']):
+        data_p.append(('pearson',
+                       result['col_p'][i],
+                       corr_matrix[0, i]))
+    for i, _ in enumerate(result['col_s']):
+        data_s.append(('spearman',
+                       result['col_s'][i],
+                       corr_matrix[1, i]))
+    for i, _ in enumerate(result['col_k']):
+        data_k.append(('kendall',
+                       result['col_k'][i],
+                       corr_matrix[2, i]))
     tooltips = [
+        ('x', '@x'),
+        ('y', '@y'),
         ('z', '@z'),
     ]
     hover = HoverTool(tooltips=tooltips)
-    heatmap = hv.HeatMap(data).redim.range(z=(-1, 1))
-    heatmap.opts(
+    heatmap_p = hv.HeatMap(data_p).redim.range(z=(-1, 1))
+    heatmap_p.opts(
+        tools=[hover],
+        colorbar=True,
+        width=325,
+        toolbar='above'
+    )
+    heatmap_s = hv.HeatMap(data_s).redim.range(z=(-1, 1))
+    heatmap_s.opts(
+        tools=[hover],
+        colorbar=True,
+        width=325,
+        toolbar='above'
+    )
+    heatmap_k = hv.HeatMap(data_k).redim.range(z=(-1, 1))
+    heatmap_k.opts(
         tools=[hover],
         colorbar=True,
         width=325,
         toolbar='above',
-        title="heatmap"
     )
-    fig = hv.render(
-        heatmap,
+    fig_p = hv.render(
+        heatmap_p,
         backend='bokeh'
     )
-    fig.plot_width = 400
-    fig.plot_height = 400
+    fig_s = hv.render(
+        heatmap_s,
+        backend='bokeh'
+    )
+    fig_k = hv.render(
+        heatmap_k,
+        backend='bokeh'
+    )
     title = Title()
     title.text = 'most correlated columns to ' + intermediate.raw_data['x_name']
-    fig.title = title
-    _discard_unused_visual_elems(fig)
+    title.align = 'center'
+    fig_s.title = title
+    _discard_unused_visual_elems(fig_p)
+    _discard_unused_visual_elems(fig_s)
+    _discard_unused_visual_elems(fig_k)
+    fig = gridplot([[fig_p, fig_s, fig_k]])
     return fig
 
 
@@ -157,9 +195,18 @@ def _vis_correlation_pd_x_y_k(
         intermediate.raw_data['y_name']
     ].values
     result = intermediate.result
+    tooltips = [
+        ('x', '@x'),
+        ('y', '@y'),
+    ]
+    hover = HoverTool(
+        tooltips=tooltips,
+        names=['dec', 'inc']
+    )
     fig = figure(
         plot_width=400,
-        plot_height=400
+        plot_height=400,
+        tools=[hover]
     )
     sample_x = np.linspace(min(data_x), max(data_y), 100)
     sample_y = result['line_a'] * sample_x + result['line_b']
@@ -179,7 +226,8 @@ def _vis_correlation_pd_x_y_k(
                 legend=f'{name}rease points',
                 size=10,
                 color=color,
-                alpha=0.5
+                alpha=0.5,
+                name=name,
             )
     else:
         fig.legend.visible = False
@@ -192,6 +240,7 @@ def _vis_correlation_pd_x_y_k(
     fig.toolbar.active_drag = None
     title = Title()
     title.text = 'scatter plot'
+    title.align = 'center'
     fig.title = title
     fig.xaxis.axis_label = intermediate.raw_data['x_name']
     fig.yaxis.axis_label = intermediate.raw_data['y_name']
@@ -353,7 +402,7 @@ def _calc_correlation_pd_x_k(  # pylint: disable=too-many-statements
         # pylint: disable=too-many-locals
         pd_data_frame: pd.DataFrame,
         x_name: str,
-        k: int,
+        k: Optional[int] = None,
 ) -> Intermediate:
     """
     :param pd_data_frame: the pandas data_frame for which plots
@@ -365,7 +414,7 @@ def _calc_correlation_pd_x_k(  # pylint: disable=too-many-statements
     """
     if k == 0:
         raise ValueError("k should be larger than 0")
-    if len(pd_data_frame.columns) < k:
+    if k is not None and len(pd_data_frame.columns) < k:
         raise ValueError("k should be smaller than the number of columns")
 
     name_list = list(pd_data_frame.columns)
@@ -379,11 +428,6 @@ def _calc_correlation_pd_x_k(  # pylint: disable=too-many-statements
     cov_xy = np.cov(cal_matrix_p)
     std_xy = np.sqrt(np.diag(cov_xy))
     corr_matrix_p = cov_xy / std_xy[:, None] / std_xy[None, :]
-    row_p = corr_matrix_p[name_idx, :]
-    row_p[name_idx] = -1
-    idx_p = np.argsort(row_p)
-    col_p = np.array(name_list)[idx_p[-k:]]
-    col_p = col_p[::-1]
 
     matrix_row, _ = np.shape(cal_matrix_s)
     for i in range(matrix_row):
@@ -391,11 +435,6 @@ def _calc_correlation_pd_x_k(  # pylint: disable=too-many-statements
     cov_xy = np.cov(cal_matrix_s)
     std_xy = np.sqrt(np.diag(cov_xy))
     corr_matrix_s = cov_xy / std_xy[:, None] / std_xy[None, :]
-    row_s = corr_matrix_s[name_idx, :]
-    row_s[name_idx] = -1
-    idx_s = np.argsort(row_s)
-    col_s = np.array(name_list)[idx_s[-k:]]
-    col_s = col_s[::-1]
 
     matrix_row, _ = np.shape(cal_matrix_k)
     corr_matrix_k = np.ones(
@@ -420,25 +459,60 @@ def _calc_correlation_pd_x_k(  # pylint: disable=too-many-statements
         corr_matrix_k[name_idx][i] = corr_comp[idx]
         corr_matrix_k[i][name_idx] = corr_matrix_k[name_idx][i]
         idx = idx + 1
-    row_k = corr_matrix_k[name_idx, :]
-    row_k[name_idx] = -1
-    idx_k = np.argsort(row_k)
-    col_k = np.array(name_list)[idx_k[-k:]]
-    col_k = col_k[::-1]
-
-    result = {
-        'pearson': sorted(row_p[idx_p[-k:]], reverse=True),
-        'spearman': sorted(row_s[idx_s[-k:]], reverse=True),
-        'kendall': sorted(row_k[idx_k[-k:]], reverse=True),
-        'col_p': col_p,
-        'col_s': col_s,
-        'col_k': col_k
-    }
-    raw_data = {
-        'df': pd_data_frame,
-        'x_name': x_name,
-        'k': k
-    }
+    if k is not None:
+        row_p = corr_matrix_p[name_idx, :]
+        row_p[name_idx] = -1
+        idx_p = np.argsort(row_p)
+        col_p = np.array(name_list)[idx_p[-k:]]
+        col_p = col_p[::-1]
+        row_s = corr_matrix_s[name_idx, :]
+        row_s[name_idx] = -1
+        idx_s = np.argsort(row_s)
+        col_s = np.array(name_list)[idx_s[-k:]]
+        col_s = col_s[::-1]
+        row_k = corr_matrix_k[name_idx, :]
+        row_k[name_idx] = -1
+        idx_k = np.argsort(row_k)
+        col_k = np.array(name_list)[idx_k[-k:]]
+        col_k = col_k[::-1]
+        result = {
+            'pearson': sorted(row_p[idx_p[-k:]], reverse=True),
+            'spearman': sorted(row_s[idx_s[-k:]], reverse=True),
+            'kendall': sorted(row_k[idx_k[-k:]], reverse=True),
+            'col_p': col_p,
+            'col_s': col_s,
+            'col_k': col_k
+        }
+        raw_data = {
+            'df': pd_data_frame,
+            'x_name': x_name,
+            'k': k
+        }
+    else:
+        row_p = corr_matrix_p[name_idx, :]
+        idx_p = np.argsort(row_p)
+        col_p = np.array(name_list)[idx_p]
+        col_p = col_p[::-1]
+        row_s = corr_matrix_s[name_idx, :]
+        idx_s = np.argsort(row_s)
+        col_s = np.array(name_list)[idx_s]
+        col_s = col_s[::-1]
+        row_k = corr_matrix_k[name_idx, :]
+        idx_k = np.argsort(row_k)
+        col_k = np.array(name_list)[idx_k]
+        col_k = col_k[::-1]
+        result = {
+            'pearson': sorted(row_p[idx_p], reverse=True),
+            'spearman': sorted(row_s[idx_s], reverse=True),
+            'kendall': sorted(row_k[idx_k], reverse=True),
+            'col_p': col_p,
+            'col_s': col_s,
+            'col_k': col_k
+        }
+        raw_data = {
+            'df': pd_data_frame,
+            'x_name': x_name
+        }
     intermediate = Intermediate(result, raw_data)
     return intermediate
 
@@ -620,7 +694,7 @@ def plot_correlation(  # pylint: disable=too-many-arguments
         else:
             raise ValueError("Cannot calculate the correlation "
                              "between two different dtype column")
-    elif x_name is not None and k is not None:
+    elif x_name is not None:
         if get_type(pd_data_frame[x_name]) != DataType.TYPE_NUM:
             raise ValueError("The dtype of data frame column "
                              "should be numerical")
