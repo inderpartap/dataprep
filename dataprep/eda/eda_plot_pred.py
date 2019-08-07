@@ -97,7 +97,8 @@ def _calc_pred_corr(
         'pred_score': pred_score
     }
     raw_data = {
-        'df': pd_data_frame
+        'df': pd_data_frame,
+        'target': target
     }
     intermediate = Intermediate(
         result=result,
@@ -122,11 +123,8 @@ def _calc_pred_stat(  # pylint: disable=too-many-locals
     :return: An object to encapsulate the
     intermediate results.
     """
-    column_name_list = pd_data_frame.columns.values
-    for column_name in column_name_list:
-        if column_name != target and \
-                get_type(pd_data_frame[column_name]) != DataType.TYPE_NUM:
-            raise ValueError("The type of data frame is error")
+    if get_type(pd_data_frame[x_name]) != DataType.TYPE_NUM:
+        raise ValueError("The type of data frame is error")
     stats_list = []
     pd_data_frame_cal = pd_data_frame[[target, x_name]]
     if target_type == DataType.TYPE_CAT:
@@ -214,13 +212,10 @@ def _calc_pred_relation(
     :return: An object to encapsulate the
     intermediate results.
     """
-    column_name_list = pd_data_frame.columns.values
-    for column_name in column_name_list:
-        if column_name != target and \
-                get_type(pd_data_frame[column_name]) != DataType.TYPE_NUM:
-            raise ValueError("The type of data frame is error")
     x_type = get_type(pd_data_frame[x_name])
     y_type = get_type(pd_data_frame[y_name])
+    if x_type != DataType.TYPE_NUM or y_type != DataType.TYPE_NUM:
+        raise ValueError("The type of data frame is error")
     if target_type not in (DataType.TYPE_CAT, DataType.TYPE_NUM):
         raise ValueError("Target column's type should be "
                          "categorical or numerical")
