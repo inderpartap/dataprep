@@ -8,6 +8,7 @@ import dask
 import numpy as np
 import pandas as pd
 from bokeh.io import show
+from bokeh.models.widgets import Tabs
 from bokeh.plotting import Figure
 from dataprep.eda.common import Intermediate
 from dataprep.eda.vis_plot_miss import _vis_none_count, \
@@ -130,7 +131,8 @@ def plot_missing(
         x_name: Optional[str] = None,
         y_name: Optional[str] = None,
         return_intermediate: bool = False
-) -> Union[Figure, Tuple[Figure, Any]]:
+) -> Union[Union[Figure, Tabs],
+           Tuple[Union[Figure, Tabs], Any]]:
     """
     :param pd_data_frame: the pandas data_frame for which plots are calculated for each
     column.

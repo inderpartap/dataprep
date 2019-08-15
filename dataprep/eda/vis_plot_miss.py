@@ -2,13 +2,12 @@
     This module implements the plot_missing(df, x, y) function's
     visualization part
 """
-import math
 import holoviews as hv
 import numpy as np
 import scipy.stats
-from bokeh.layouts import gridplot
 from bokeh.models import HoverTool
 from bokeh.models.annotations import Title
+from bokeh.models.widgets import Panel, Tabs
 from bokeh.plotting import Figure
 from dataprep.eda.common import Intermediate
 from dataprep.utils import get_type, DataType
@@ -24,44 +23,38 @@ def _vis_none_count(  # pylint: disable=too-many-locals
     """
     hv.extension('bokeh', logo=False)
     distribution = intermediate.result['distribution']
+    count = intermediate.result['count']
     row, col = distribution.shape
     columns_name = list(intermediate.raw_data['df'].columns.values)
-    data_d = [(columns_name[i], j, distribution[i, j])
+    data_d = [(columns_name[i] + '(%0.2f' % (count[i] * 100) + '%)', j, distribution[i, j])
               for i in range(row) for j in range(col)]
     tooltips = [
         ('z', '@z'),
     ]
     hover = HoverTool(tooltips=tooltips)
-    heatmap = hv.HeatMap(data_d).redim.range(z=(0, 1))
+    heatmap = hv.HeatMap(data_d).redim.range(z=(-1, 1))
     heatmap.opts(
         tools=[hover],
-        colorbar=True,
+        colorbar=False,
+        height=325,
         width=325,
-        title="Position of Missing Value"
+        title="Position of Missing Value",
+        show_grid=False
     )
-    heatmap_fig = hv.render(heatmap, backend='bokeh')
-    heatmap_fig.toolbar_location = None
-    heatmap_fig.toolbar.active_drag = None
-    heatmap_fig.xaxis.axis_label = 'Column Name'
-    heatmap_fig.yaxis.axis_label = 'Position'
-    heatmap_fig.yaxis.major_tick_line_color = None
-    heatmap_fig.yaxis.minor_tick_line_color = None
-    heatmap_fig.yaxis.major_label_text_font_size = '0pt'
-    count = intermediate.result['count']
-    data_b = [(columns_name[i], j) for i, j in enumerate(count)]
-    bars = hv.Bars(data_b, hv.Dimension("Column Name"), "Frequency")
-    bars_fig = hv.render(bars, backend='bokeh')
-    title = Title()
-    title.text = 'Frequency of Missing Value'
-    bars_fig.title = title
-    fig = gridplot([[heatmap_fig, bars_fig]])
-    fig.sizing_mode = 'scale_width'
+    fig = hv.render(heatmap, backend='bokeh')
+    fig.toolbar_location = None
+    fig.toolbar.active_drag = None
+    fig.xaxis.axis_label = 'Column Name'
+    fig.yaxis.axis_label = 'Position'
+    fig.yaxis.major_tick_line_color = None
+    fig.yaxis.minor_tick_line_color = None
+    fig.yaxis.major_label_text_font_size = '0pt'
     return fig
 
 
 def _vis_drop_columns(  # pylint: disable=too-many-locals
         intermediate: Intermediate
-) -> Figure:
+) -> Tabs:
     """
     :param intermediate: An object to encapsulate the
     intermediate results
@@ -72,9 +65,7 @@ def _vis_drop_columns(  # pylint: disable=too-many-locals
     df_data_drop = intermediate.result['df_data_drop']
     columns_name = intermediate.result['columns_name']
     hv.extension('bokeh', logo=False)
-    fig_list = np.array([None for _ in range(math.ceil(len(columns_name) / 4) * 4)])
-    fig_list = fig_list.reshape(int(len(fig_list) / 4), 4)
-    count = 0
+    tab_list = []
     for name in columns_name:
         if get_type(pd_data_frame[name]) == DataType.TYPE_NUM:
             tooltips = [
@@ -87,19 +78,23 @@ def _vis_drop_columns(  # pylint: disable=too-many-locals
             ).opts(alpha=0.3, tools=[hover])
             hist_drop = hv.Histogram(
                 np.histogram(df_data_drop[name].values, num_bins),
-                label='Removed Rows'
+                label='Updated Data'
             ).opts(alpha=0.3, tools=[hover])
-            hist_fig = hv.render(
-                hist_origin * hist_drop,
+            fig = hv.render(
+                (hist_origin * hist_drop).opts(
+                    height=375,
+                    width=325,
+                    legend_position='top'
+                ),
                 backend='bokeh'
             )
-            hist_fig.xaxis.axis_label = 'Column Name'
-            hist_fig.yaxis.axis_label = 'Frequency'
+            fig.xaxis.axis_label = 'Column Name'
+            fig.yaxis.axis_label = 'Frequency'
             title = Title()
             title.text = 'Frequency of Value'
-            hist_fig.title = title
-            fig_list[count // 4][count % 4] = hist_fig
-            count = count + 1
+            fig.title = title
+            tab = Panel(child=fig, title=name)
+            tab_list.append(tab)
         elif get_type(pd_data_frame[name]) == DataType.TYPE_CAT:
             tooltips = [
                 ('Frequency', '@c'),
@@ -111,28 +106,32 @@ def _vis_drop_columns(  # pylint: disable=too-many-locals
             ).opts(alpha=0.3, tools=[hover])
             bars_drop = hv.Bars(
                 df_data_drop[name].value_counts(),
-                label='Removed Rows'
+                label='Updated Data'
             ).opts(alpha=0.3, tools=[hover])
-            bars_fig = hv.render(
-                bars_origin * bars_drop,
+            fig = hv.render(
+                (bars_origin * bars_drop).opts(
+                    height=375,
+                    width=325,
+                    legend_position='top'
+                ),
                 backend='bokeh'
             )
-            bars_fig.xaxis.axis_label = 'Column Name'
-            bars_fig.yaxis.axis_label = 'Frequency'
+            fig.xaxis.axis_label = 'Column Name'
+            fig.yaxis.axis_label = 'Frequency'
             title = Title()
             title.text = 'Frequency of Value'
-            bars_fig.title = title
-            fig_list[count // 4][count % 4] = bars_fig
-            count = count + 1
+            fig.title = title
+            tab = Panel(child=fig, title=name)
+            tab_list.append(tab)
         else:
             raise ValueError("the column's type is error")
-    fig = gridplot(list(fig_list))
-    return fig
+    tabs = Tabs(tabs=tab_list)
+    return tabs
 
 
 def _vis_drop_y(  # pylint: disable=too-many-locals
         intermediate: Intermediate
-) -> Figure:
+) -> Tabs:
     """
     :param intermediate: An object to encapsulate the
     intermediate results
@@ -148,7 +147,8 @@ def _vis_drop_y(  # pylint: disable=too-many-locals
     if get_type(pd_data_frame[y_name]) == DataType.TYPE_NUM:
         hist_data_origin = np.histogram(
             origin_data,
-            bins=num_bins
+            bins=num_bins,
+
         )
         hist_data_drop = np.histogram(
             drop_data,
@@ -163,44 +163,64 @@ def _vis_drop_y(  # pylint: disable=too-many-locals
         )
         pdf_origin = hv.Curve(
             (sample_x, hist_dist_origin.pdf(sample_x)),
-            label='Origin PDF'
+            label='Original PDF'
         )
         cdf_origin = hv.Curve(
             (sample_x, hist_dist_origin.cdf(sample_x)),
-            label='Origin CDF'
+            label='Original CDF'
         )
         pdf_drop = hv.Curve(
             (sample_x, hist_dist_drop.pdf(sample_x)),
-            label='Removed PDF'
+            label='Updated PDF'
         )
         cdf_drop = hv.Curve(
             (sample_x, hist_dist_drop.cdf(sample_x)),
-            label='Removed CDF'
+            label='Updated CDF'
         )
         tooltips = [
             ('Frequency', '@Frequency'),
         ]
         hover = HoverTool(tooltips=tooltips)
         hist_origin = hv.Histogram(
-            hist_data_origin
-        ).opts(alpha=0.3, tools=[hover])
+            hist_data_origin,
+            label='Original Data'
+        ).opts(
+            alpha=0.3,
+            tools=[hover]
+        )
         hist_drop = hv.Histogram(
-            hist_data_drop
-        ).opts(alpha=0.3, tools=[hover])
+            hist_data_drop,
+            label='Updated Data'
+        ).opts(
+            alpha=0.3,
+            tools=[hover]
+        )
         fig_hist = hv.render(
-            hist_origin * hist_drop,
+            (hist_origin * hist_drop).opts(
+                height=375,
+                width=325,
+                legend_position='top'
+            ),
             backend='bokeh'
         )
         fig_pdf = hv.render(
-            pdf_origin * pdf_drop,
+            (pdf_origin * pdf_drop).opts(
+                height=375,
+                width=325,
+                legend_position='top'
+            ),
             backend='bokeh'
         )
         fig_cdf = hv.render(
-            cdf_origin * cdf_drop,
+            (cdf_origin * cdf_drop).opts(
+                height=375,
+                width=325,
+                legend_position='top'
+            ),
             backend='bokeh'
         )
-        group_origin = ['Origin' for _, _ in enumerate(origin_data)]
-        group_drop = ['Removed' for _, _ in enumerate(drop_data)]
+        group_origin = ['Original' for _, _ in enumerate(origin_data)]
+        group_drop = ['Updated' for _, _ in enumerate(drop_data)]
         group_origin.extend(group_drop)
         tooltips = [
             ('Group', '@Group'),
@@ -210,12 +230,20 @@ def _vis_drop_y(  # pylint: disable=too-many-locals
         box_mixed = hv.BoxWhisker(
             (group_origin, np.append(origin_data, drop_data)),
             ['Group'], 'Value'
-        ).opts(tools=[hover])
+        ).opts(
+            tools=[hover],
+            height=375,
+            width=350
+        )
         fig_box = hv.render(
             box_mixed,
             backend='bokeh'
         )
-        fig = gridplot([[fig_hist, fig_box, fig_pdf, fig_cdf]])
+        tab_hist = Panel(child=fig_hist, title='histogram')
+        tab_box = Panel(child=fig_box, title='box')
+        tab_pdf = Panel(child=fig_pdf, title='pdf')
+        tab_cdf = Panel(child=fig_cdf, title='cdf')
+        tabs = Tabs(tabs=[tab_hist, tab_box, tab_pdf, tab_cdf])
     elif get_type(pd_data_frame[y_name]) == DataType.TYPE_CAT:
         tooltips = [
             ('Frequency', '@c'),
@@ -233,7 +261,8 @@ def _vis_drop_y(  # pylint: disable=too-many-locals
             bars_origin * bars_drop,
             backend='bokeh'
         )
-        fig = gridplot([[fig_bars]])
+        tab_bars = Panel(child=fig_bars, title='bars')
+        tabs = Tabs(tabs=[tab_bars])
     else:
         raise ValueError("the column's type is error")
-    return fig
+    return tabs
