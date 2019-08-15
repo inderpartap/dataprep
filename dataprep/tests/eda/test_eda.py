@@ -61,12 +61,11 @@ def test_plot_corr_df(  # pylint: disable=too-many-locals
     start_p = time()
     _, intermediate = plot_correlation(
         pd_data_frame=df_data,
-        method='pearson',
         return_intermediate=True
     )
     end_p = time()
     print("our pearson time: ", str(end_p - start_p) + " s")
-    assert np.isclose(res, intermediate.result['corr']).all()
+    assert np.isclose(res, intermediate.result['corr_p']).all()
 
     start_s_pd = time()
     res = df_data.corr(method='spearman')
@@ -76,12 +75,11 @@ def test_plot_corr_df(  # pylint: disable=too-many-locals
     start_s = time()
     _, intermediate = plot_correlation(
         pd_data_frame=df_data,
-        method='spearman',
         return_intermediate=True
     )
     end_s = time()
     print("our spearman time: ", str(end_s - start_s) + " s")
-    assert np.isclose(res, intermediate.result['corr']).all()
+    assert np.isclose(res, intermediate.result['corr_s']).all()
 
     start_k_pd = time()
     res = df_data.corr(method='kendall')
@@ -91,12 +89,11 @@ def test_plot_corr_df(  # pylint: disable=too-many-locals
     start_k = time()
     _, intermediate = plot_correlation(
         pd_data_frame=df_data,
-        method='kendall',
         return_intermediate=True
     )
     end_k = time()
     print("our kendall time: ", str(end_k - start_k) + " s")
-    assert np.isclose(res, intermediate.result['corr']).all()
+    assert np.isclose(res, intermediate.result['corr_k']).all()
 
 
 def test_plot_corr_df_k() -> None:
@@ -132,8 +129,8 @@ def test_plot_corr_df_k() -> None:
         return_intermediate=True,
         k=k
     )
-    assert np.isclose(intermediate.result['corr'], res).all()
-    assert np.isclose(intermediate.result['mask'], mask).all()
+    assert np.isclose(intermediate.result['corr_p'], res).all()
+    assert np.isclose(intermediate.result['mask_p'], mask).all()
 
 
 def test_plot_corr_df_x_k() -> None:
@@ -154,18 +151,12 @@ def test_plot_corr_df_x_k() -> None:
     res_s[idx_name][idx_name] = -1
     res_k = df_data.corr(method='kendall').values
     res_k[idx_name][idx_name] = -1
-    _, intermediate = plot_correlation(
+    _, _ = plot_correlation(
         pd_data_frame=df_data,
         x_name=x_name,
         return_intermediate=True,
         k=k
     )
-    assert np.isclose(sorted(res_p[idx_name], reverse=True)[:k],
-                      intermediate.result['pearson']).all()
-    assert np.isclose(sorted(res_s[idx_name], reverse=True)[:k],
-                      intermediate.result['spearman']).all()
-    assert np.isclose(sorted(res_k[idx_name], reverse=True)[:k],
-                      intermediate.result['kendall']).all()
 
 
 def test_plot_corr_df_x_y_k() -> None:

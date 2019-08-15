@@ -9,9 +9,9 @@ import holoviews as hv
 import numpy as np
 import pandas as pd
 from bokeh.io import show
-from bokeh.layouts import gridplot
 from bokeh.models import HoverTool
 from bokeh.models.annotations import Title
+from bokeh.models.widgets import Panel, Tabs
 from bokeh.plotting import figure, Figure
 from scipy.stats import kendalltau
 from dataprep.eda.common import Intermediate
@@ -47,6 +47,10 @@ def _value_to_rank(
 def _discard_unused_visual_elems(
         fig: Figure
 ) -> None:
+    """
+    :param fig: A figure object
+    :return:
+    """
     fig.toolbar_location = None
     fig.toolbar.active_drag = None
     fig.xaxis.axis_label = ''
@@ -55,55 +59,60 @@ def _discard_unused_visual_elems(
 
 def _vis_correlation_pd(  # pylint: disable=too-many-locals
         intermediate: Intermediate
-) -> Figure:
+) -> Tabs:
     """
     :param intermediate: An object to encapsulate the
     intermediate results.
     :return: A figure object
     """
+    tab_list = []
     pd_data_frame = intermediate.raw_data['df']
-    method = intermediate.raw_data['method']
+    method_list = intermediate.raw_data['method_list']
     result = intermediate.result
     hv.extension(
         'bokeh',
         logo=False
     )
-    corr_matrix = result['corr']
-    name_list = pd_data_frame.columns.values
-    data = []
-    for i, _ in enumerate(name_list):
-        for j, _ in enumerate(name_list):
-            data.append((name_list[i],
-                         name_list[j],
-                         corr_matrix[i, j]))
-    tooltips = [
-        ('x', '@x'),
-        ('y', '@y'),
-        ('z', '@z'),
-    ]
-    hover = HoverTool(tooltips=tooltips)
-    heatmap = hv.HeatMap(data).redim.range(z=(-1, 1))
-    heatmap.opts(
-        tools=[hover],
-        colorbar=True,
-        width=325,
-        title="heatmap_" + method
-    )
-    fig = hv.render(heatmap, backend='bokeh')
-    fig.plot_width = 400
-    fig.plot_height = 400
-    title = Title()
-    title.text = method + ' correlation matrix'
-    title.align = 'center'
-    fig.title = title
-    fig.xaxis.major_label_orientation = math.pi / 2
-    _discard_unused_visual_elems(fig)
-    return fig
+    for method in method_list:
+        corr_matrix = result['corr_' + method[0]]
+        name_list = pd_data_frame.columns.values
+        data = []
+        for i, _ in enumerate(name_list):
+            for j, _ in enumerate(name_list):
+                data.append((name_list[i],
+                             name_list[j],
+                             corr_matrix[i, j]))
+        tooltips = [
+            ('x', '@x'),
+            ('y', '@y'),
+            ('z', '@z'),
+        ]
+        hover = HoverTool(tooltips=tooltips)
+        heatmap = hv.HeatMap(data).redim.range(z=(-1, 1))
+        heatmap.opts(
+            tools=[hover],
+            colorbar=True,
+            width=325,
+            title="heatmap_" + method
+        )
+        fig = hv.render(heatmap, backend='bokeh')
+        fig.plot_width = 400
+        fig.plot_height = 400
+        title = Title()
+        title.text = method + ' correlation matrix'
+        title.align = 'center'
+        fig.title = title
+        fig.xaxis.major_label_orientation = math.pi / 2
+        _discard_unused_visual_elems(fig)
+        tab = Panel(child=fig, title=method)
+        tab_list.append(tab)
+    tabs = Tabs(tabs=tab_list)
+    return tabs
 
 
 def _vis_correlation_pd_x_k(  # pylint: disable=too-many-locals
         intermediate: Intermediate
-) -> Figure:
+) -> Tabs:
     """
     :param intermediate: An object to encapsulate the
     intermediate results.
@@ -112,24 +121,21 @@ def _vis_correlation_pd_x_k(  # pylint: disable=too-many-locals
     result = intermediate.result
     hv.extension('bokeh',
                  logo=False)
-    corr_matrix = np.array([result['pearson'],
-                            result['spearman'],
-                            result['kendall']])
     data_p = []
     data_s = []
     data_k = []
     for i, _ in enumerate(result['col_p']):
         data_p.append(('pearson',
                        result['col_p'][i],
-                       corr_matrix[0, i]))
+                       result['pearson'][i]))
     for i, _ in enumerate(result['col_s']):
         data_s.append(('spearman',
                        result['col_s'][i],
-                       corr_matrix[1, i]))
+                       result['spearman'][i]))
     for i, _ in enumerate(result['col_k']):
         data_k.append(('kendall',
                        result['col_k'][i],
-                       corr_matrix[2, i]))
+                       result['kendall'][i]))
     tooltips = [
         ('x', '@x'),
         ('y', '@y'),
@@ -169,15 +175,14 @@ def _vis_correlation_pd_x_k(  # pylint: disable=too-many-locals
         heatmap_k,
         backend='bokeh'
     )
-    title = Title()
-    title.text = 'most correlated columns to ' + intermediate.raw_data['x_name']
-    title.align = 'center'
-    fig_s.title = title
     _discard_unused_visual_elems(fig_p)
     _discard_unused_visual_elems(fig_s)
     _discard_unused_visual_elems(fig_k)
-    fig = gridplot([[fig_p, fig_s, fig_k]])
-    return fig
+    tab_p = Panel(child=fig_p, title='pearson')
+    tab_s = Panel(child=fig_s, title='spearman')
+    tab_k = Panel(child=fig_k, title='kendall')
+    tabs = Tabs(tabs=[tab_p, tab_s, tab_k])
+    return tabs
 
 
 def _vis_correlation_pd_x_y_k(
@@ -213,17 +218,20 @@ def _vis_correlation_pd_x_y_k(
     fig.circle(
         data_x,
         data_y,
-        legend='origin data',
         size=10,
         color='navy',
         alpha=0.5
     )
     if intermediate.raw_data["k"] is not None:
         for name, color in [("dec", "yellow"), ("inc", "red")]:
+            if name == 'inc':
+                legend_name = 'most influential (+)'
+            else:
+                legend_name = 'most influential (-)'
             fig.circle(
                 result[f'{name}_point_x'],
                 result[f'{name}_point_y'],
-                legend=f'{name}rease points',
+                legend=legend_name,
                 size=10,
                 color=color,
                 alpha=0.5,
@@ -291,56 +299,56 @@ def _vis_cross_table(
 
 def _calc_correlation_pd(  # pylint: disable=too-many-locals
         pd_data_frame: pd.DataFrame,
-        method: str = 'pearson'
 ) -> Any:
     """
     :param pd_data_frame: the pandas data_frame for which plots
     are calculated for each column.
-    :param method: Three method we can use to calculate
-    the correlation matrix
     :return: An object to encapsulate the
     intermediate results.
     """
-    if method == 'pearson':
-        cal_matrix = pd_data_frame.values.T
-        cov_xy = np.cov(cal_matrix)
-        std_xy = np.sqrt(np.diag(cov_xy))
-        corr_matrix = cov_xy / std_xy[:, None] / std_xy[None, :]
-    elif method == 'spearman':
-        cal_matrix = pd_data_frame.values.T
-        matrix_row, _ = np.shape(cal_matrix)
-        for i in range(matrix_row):
-            cal_matrix[i, :] = _value_to_rank(cal_matrix[i, :])
-        cov_xy = np.cov(cal_matrix)
-        std_xy = np.sqrt(np.diag(cov_xy))
-        corr_matrix = cov_xy / std_xy[:, None] / std_xy[None, :]
-    elif method == 'kendall':
-        cal_matrix = pd_data_frame.values.T
-        matrix_row, _ = np.shape(cal_matrix)
-        corr_matrix = np.ones(
-            shape=(matrix_row, matrix_row)
-        )
-        corr_list = []
-        for i in range(matrix_row):
-            for j in range(i + 1, matrix_row):
-                tmp = dask.delayed(_calc_kendall)(
-                    cal_matrix[i, :], cal_matrix[j, :])
-                corr_list.append(tmp)
-        corr_comp = dask.compute(*corr_list)
-        idx = 0
-        for i in range(matrix_row):  # TODO: Optimize by using numpy api
-            for j in range(i + 1, matrix_row):
-                corr_matrix[i][j] = corr_comp[idx]
-                corr_matrix[j][i] = corr_matrix[i][j]
-                idx = idx + 1
-    else:
-        raise ValueError("Method Error")
-    result = {
-        'corr': corr_matrix
-    }
+    method_list = ['pearson', 'spearman', 'kendall']
+    result = {}
+    for method in method_list:
+        if method == 'pearson':
+            cal_matrix = pd_data_frame.values.T
+            cov_xy = np.cov(cal_matrix)
+            std_xy = np.sqrt(np.diag(cov_xy))
+            corr_matrix = cov_xy / std_xy[:, None] / std_xy[None, :]
+            result['corr_p'] = corr_matrix
+        elif method == 'spearman':
+            cal_matrix = pd_data_frame.values.T
+            matrix_row, _ = np.shape(cal_matrix)
+            for i in range(matrix_row):
+                cal_matrix[i, :] = _value_to_rank(cal_matrix[i, :])
+            cov_xy = np.cov(cal_matrix)
+            std_xy = np.sqrt(np.diag(cov_xy))
+            corr_matrix = cov_xy / std_xy[:, None] / std_xy[None, :]
+            result['corr_s'] = corr_matrix
+        elif method == 'kendall':
+            cal_matrix = pd_data_frame.values.T
+            matrix_row, _ = np.shape(cal_matrix)
+            corr_matrix = np.ones(
+                shape=(matrix_row, matrix_row)
+            )
+            corr_list = []
+            for i in range(matrix_row):
+                for j in range(i + 1, matrix_row):
+                    tmp = dask.delayed(_calc_kendall)(
+                        cal_matrix[i, :], cal_matrix[j, :])
+                    corr_list.append(tmp)
+            corr_comp = dask.compute(*corr_list)
+            idx = 0
+            for i in range(matrix_row):  # TODO: Optimize by using numpy api
+                for j in range(i + 1, matrix_row):
+                    corr_matrix[i][j] = corr_comp[idx]
+                    corr_matrix[j][i] = corr_matrix[i][j]
+                    idx = idx + 1
+            result['corr_k'] = corr_matrix
+        else:
+            raise ValueError("Method Error")
     raw_data = {
         'df': pd_data_frame,
-        'method': method
+        'method_list': method_list
     }
     intermediate = Intermediate(result, raw_data)
     return intermediate
@@ -349,49 +357,46 @@ def _calc_correlation_pd(  # pylint: disable=too-many-locals
 def _calc_correlation_pd_k(
         pd_data_frame: pd.DataFrame,
         k: int,
-        method: str = 'pearson'
 ) -> Any:
     """
     :param pd_data_frame: the pandas data_frame for which plots
     are calculated for each column.
     :param k: choose top-k correlation value
-    :param method: Three method we can use to calculate
-    the correlation matrix
     :return: An object to encapsulate the
     intermediate results.
     """
+    result = {}
     intermediate_pd = _calc_correlation_pd(
         pd_data_frame=pd_data_frame,
-        method=method
     )
-    corr_matrix = intermediate_pd.result['corr']
-    matrix_row, _ = np.shape(corr_matrix)
-    corr_matrix_re = np.reshape(
-        np.triu(corr_matrix, 1),
-        (matrix_row * matrix_row,)
-    )
-    idx = np.argsort(corr_matrix_re)
-    mask = np.zeros(
-        shape=(matrix_row * matrix_row,)
-    )
-    for i in range(k):
-        if corr_matrix_re[idx[i]] < 0:
-            mask[idx[i]] = 1
-        if corr_matrix_re[idx[-i - 1]] > 0:
-            mask[idx[-i - 1]] = 1
-    corr_matrix = np.multiply(corr_matrix_re, mask)
-    corr_matrix = np.reshape(
-        corr_matrix,
-        (matrix_row, matrix_row)
-    )
-    corr_matrix += corr_matrix.T - np.diag(corr_matrix.diagonal())
-    result = {
-        'corr': corr_matrix,
-        'mask': mask
-    }
+    method_list = intermediate_pd.raw_data['method_list']
+    for method in method_list:
+        corr_matrix = intermediate_pd.result['corr_' + method[0]]
+        matrix_row, _ = np.shape(corr_matrix)
+        corr_matrix_re = np.reshape(
+            np.triu(corr_matrix, 1),
+            (matrix_row * matrix_row,)
+        )
+        idx = np.argsort(corr_matrix_re)
+        mask = np.zeros(
+            shape=(matrix_row * matrix_row,)
+        )
+        for i in range(k):
+            if corr_matrix_re[idx[i]] < 0:
+                mask[idx[i]] = 1
+            if corr_matrix_re[idx[-i - 1]] > 0:
+                mask[idx[-i - 1]] = 1
+        corr_matrix = np.multiply(corr_matrix_re, mask)
+        corr_matrix = np.reshape(
+            corr_matrix,
+            (matrix_row, matrix_row)
+        )
+        corr_matrix += corr_matrix.T - np.diag(corr_matrix.diagonal())
+        result['corr_' + method[0]] = corr_matrix
+        result['mask_' + method[0]] = mask
     raw_data = {
         'df': pd_data_frame,
-        'method': method,
+        'method_list': method_list,
         'k': k
     }
     intermediate = Intermediate(result, raw_data)
@@ -400,15 +405,18 @@ def _calc_correlation_pd_k(
 
 def _calc_correlation_pd_x_k(  # pylint: disable=too-many-statements
         # pylint: disable=too-many-locals
+        # pylint: disable=too-many-branches
         pd_data_frame: pd.DataFrame,
         x_name: str,
+        value_range: Optional[np.ndarray] = None,
         k: Optional[int] = None,
 ) -> Intermediate:
     """
     :param pd_data_frame: the pandas data_frame for which plots
     are calculated for each column.
     :param x_name: a valid column name of the data frame
-    :param k: choose top-k
+    :param value_range: a range which return correlation
+    :param k: choose top-k or reverse top-k
     :return: An object to encapsulate the
     intermediate results.
     """
@@ -459,60 +467,144 @@ def _calc_correlation_pd_x_k(  # pylint: disable=too-many-statements
         corr_matrix_k[name_idx][i] = corr_comp[idx]
         corr_matrix_k[i][name_idx] = corr_matrix_k[name_idx][i]
         idx = idx + 1
-    if k is not None:
+
+    if value_range is not None:
+        value_start = value_range.min()
+        value_end = value_range.max()
         row_p = corr_matrix_p[name_idx, :]
-        row_p[name_idx] = -1
         idx_p = np.argsort(row_p)
-        col_p = np.array(name_list)[idx_p[-k:]]
-        col_p = col_p[::-1]
+        len_p = len(idx_p)
+        start_p = len_p
+        end_p = len_p
+        for i, _ in enumerate(idx_p):
+            if start_p == len_p and \
+                    row_p[idx_p[i]] >= value_start:
+                start_p = i
+            if end_p == len_p and \
+                    row_p[idx_p[i]] > value_end:
+                end_p = i
         row_s = corr_matrix_s[name_idx, :]
-        row_s[name_idx] = -1
         idx_s = np.argsort(row_s)
-        col_s = np.array(name_list)[idx_s[-k:]]
-        col_s = col_s[::-1]
+        len_s = len(idx_s)
+        start_s = len_s
+        end_s = len_s
+        for i, _ in enumerate(idx_s):
+            if start_s == len_s and \
+                    row_s[idx_s[i]] >= value_start:
+                start_s = i
+            if end_s == len_s and \
+                    row_s[idx_s[i]] > value_end:
+                end_s = i
         row_k = corr_matrix_k[name_idx, :]
-        row_k[name_idx] = -1
         idx_k = np.argsort(row_k)
-        col_k = np.array(name_list)[idx_k[-k:]]
-        col_k = col_k[::-1]
+        len_k = len(idx_k)
+        start_k = len_k
+        end_k = len_k
+        for i, _ in enumerate(idx_k):
+            if start_k == len_k and \
+                    row_k[idx_k[i]] >= value_start:
+                start_k = i
+            if end_k == len_k and \
+                    row_k[idx_k[i]] > value_end:
+                end_k = i
         result = {
-            'pearson': sorted(row_p[idx_p[-k:]], reverse=True),
-            'spearman': sorted(row_s[idx_s[-k:]], reverse=True),
-            'kendall': sorted(row_k[idx_k[-k:]], reverse=True),
-            'col_p': col_p,
-            'col_s': col_s,
-            'col_k': col_k
+            'start_p': start_p,
+            'start_s': start_s,
+            'start_k': start_k,
+            'end_p': end_p,
+            'end_s': end_s,
+            'end_k': end_k
         }
         raw_data = {
             'df': pd_data_frame,
             'x_name': x_name,
-            'k': k
+            'value_range': value_range
         }
+        if k is not None:
+            raw_data['k'] = k
+            for method in ['pearson', 'spearman', 'kendall']:
+                if result['end_' + method[0]] - result['start_' + method[0]] > k:
+                    result['start_' + method[0]] = result['end_' + method[0]] - k
+            start_p = result['start_p']
+            end_p = result['end_p']
+            start_s = result['start_s']
+            end_s = result['end_s']
+            start_k = result['start_k']
+            end_k = result['end_k']
+            result['pearson'] = row_p[idx_p[start_p:end_p]]
+            result['spearman'] = row_s[idx_s[start_s:end_s]]
+            result['kendall'] = row_k[idx_k[start_k:end_k]]
+            result['col_p'] = np.array(name_list)[idx_p[start_p:end_p]]
+            result['col_s'] = np.array(name_list)[idx_s[start_s:end_s]]
+            result['col_k'] = np.array(name_list)[idx_k[start_k:end_k]]
+        else:
+            start_p = result['start_p']
+            end_p = result['end_p']
+            start_s = result['start_s']
+            end_s = result['end_s']
+            start_k = result['start_k']
+            end_k = result['end_k']
+            result['pearson'] = row_p[idx_p[start_p: end_p]]
+            result['spearman'] = row_s[idx_s[start_s: end_s]]
+            result['kendall'] = row_k[idx_k[start_k: end_k]]
+            result['col_p'] = np.array(name_list)[idx_p[start_p:end_p]]
+            result['col_s'] = np.array(name_list)[idx_s[start_s:end_s]]
+            result['col_k'] = np.array(name_list)[idx_k[start_k:end_k]]
     else:
-        row_p = corr_matrix_p[name_idx, :]
-        idx_p = np.argsort(row_p)
-        col_p = np.array(name_list)[idx_p]
-        col_p = col_p[::-1]
-        row_s = corr_matrix_s[name_idx, :]
-        idx_s = np.argsort(row_s)
-        col_s = np.array(name_list)[idx_s]
-        col_s = col_s[::-1]
-        row_k = corr_matrix_k[name_idx, :]
-        idx_k = np.argsort(row_k)
-        col_k = np.array(name_list)[idx_k]
-        col_k = col_k[::-1]
-        result = {
-            'pearson': sorted(row_p[idx_p], reverse=True),
-            'spearman': sorted(row_s[idx_s], reverse=True),
-            'kendall': sorted(row_k[idx_k], reverse=True),
-            'col_p': col_p,
-            'col_s': col_s,
-            'col_k': col_k
-        }
-        raw_data = {
-            'df': pd_data_frame,
-            'x_name': x_name
-        }
+        if k is not None:
+            row_p = corr_matrix_p[name_idx, :]
+            row_p[name_idx] = -1
+            idx_p = np.argsort(row_p)
+            col_p = np.array(name_list)[idx_p[-k:]]
+            col_p = col_p[::-1]
+            row_s = corr_matrix_s[name_idx, :]
+            row_s[name_idx] = -1
+            idx_s = np.argsort(row_s)
+            col_s = np.array(name_list)[idx_s[-k:]]
+            col_s = col_s[::-1]
+            row_k = corr_matrix_k[name_idx, :]
+            row_k[name_idx] = -1
+            idx_k = np.argsort(row_k)
+            col_k = np.array(name_list)[idx_k[-k:]]
+            col_k = col_k[::-1]
+            result = {
+                'pearson': row_p[idx_p[-k:]],
+                'spearman': row_s[idx_s[-k:]],
+                'kendall': row_k[idx_k[-k:]],
+                'col_p': col_p,
+                'col_s': col_s,
+                'col_k': col_k
+            }
+            raw_data = {
+                'df': pd_data_frame,
+                'x_name': x_name,
+                'k': k
+            }
+        else:
+            row_p = corr_matrix_p[name_idx, :]
+            idx_p = np.argsort(row_p)
+            col_p = np.array(name_list)[idx_p]
+            col_p = col_p[::-1]
+            row_s = corr_matrix_s[name_idx, :]
+            idx_s = np.argsort(row_s)
+            col_s = np.array(name_list)[idx_s]
+            col_s = col_s[::-1]
+            row_k = corr_matrix_k[name_idx, :]
+            idx_k = np.argsort(row_k)
+            col_k = np.array(name_list)[idx_k]
+            col_k = col_k[::-1]
+            result = {
+                'pearson': row_p[idx_p],
+                'spearman': row_s[idx_s],
+                'kendall': row_k[idx_k],
+                'col_p': col_p,
+                'col_s': col_s,
+                'col_k': col_k
+            }
+            raw_data = {
+                'df': pd_data_frame,
+                'x_name': x_name
+            }
     intermediate = Intermediate(result, raw_data)
     return intermediate
 
@@ -648,17 +740,18 @@ def plot_correlation(  # pylint: disable=too-many-arguments
         pd_data_frame: pd.DataFrame,
         x_name: Optional[str] = None,
         y_name: Optional[str] = None,
+        value_range: Optional[np.ndarray] = None,
         k: Optional[int] = None,
-        method: str = 'pearson',
         return_intermediate: bool = False
-) -> Union[Figure, Tuple[Figure, Any]]:
+) -> Union[Union[Figure, Tabs],
+           Tuple[Union[Figure, Tabs], Any]]:
     """
     :param pd_data_frame: the pandas data_frame for which plots are calculated for each
     column.
     :param x_name: a valid column name of the data frame
     :param y_name: a valid column name of the data frame
+    :param value_range: range of value
     :param k: choose top-k element
-    :param method: Three method we can use to calculate the correlation matrix
     :param return_intermediate: whether show intermediate results to users
     :return: A (column: [array/dict]) dict to encapsulate the
     intermediate results.
@@ -704,6 +797,7 @@ def plot_correlation(  # pylint: disable=too-many-arguments
         intermediate = _calc_correlation_pd_x_k(
             pd_data_frame=pd_data_frame,
             x_name=x_name,
+            value_range=value_range,
             k=k
         )
         fig = _vis_correlation_pd_x_k(
@@ -717,7 +811,6 @@ def plot_correlation(  # pylint: disable=too-many-arguments
         )
         intermediate = _calc_correlation_pd_k(
             pd_data_frame=pd_data_frame,
-            method=method,
             k=k
         )
         fig = _vis_correlation_pd(
@@ -728,8 +821,7 @@ def plot_correlation(  # pylint: disable=too-many-arguments
             pd_data_frame=pd_data_frame
         )
         intermediate = _calc_correlation_pd(
-            pd_data_frame=pd_data_frame,
-            method=method
+            pd_data_frame=pd_data_frame
         )
         fig = _vis_correlation_pd(
             intermediate=intermediate
