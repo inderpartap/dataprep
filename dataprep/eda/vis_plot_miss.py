@@ -1,7 +1,9 @@
 """
     This module implements the plot_missing(df, x, y) function's
-    visualization part
+    visualization part.
 """
+from typing import Any, Dict
+
 import holoviews as hv
 import numpy as np
 import scipy.stats
@@ -13,13 +15,17 @@ from dataprep.eda.common import Intermediate
 from dataprep.utils import get_type, DataType
 
 
-def _vis_none_count(  # pylint: disable=too-many-locals
-        intermediate: Intermediate
+def _vis_nonzero_count(  # pylint: disable=too-many-locals
+        intermediate: Intermediate,
+        params: Dict[str, Any]
 ) -> Figure:
     """
     :param intermediate: An object to encapsulate the
     intermediate results
     :return: A figure object
+
+    This function is designed to draw a heatmap,
+    which is able to show the missing value's location and rate
     """
     hv.extension('bokeh', logo=False)
     distribution = intermediate.result['distribution']
@@ -36,8 +42,8 @@ def _vis_none_count(  # pylint: disable=too-many-locals
     heatmap.opts(
         tools=[hover],
         colorbar=False,
-        height=325,
-        width=325,
+        height=params['height'],
+        width=params['width'],
         title="Position of Missing Value",
         show_grid=False
     )
@@ -52,13 +58,17 @@ def _vis_none_count(  # pylint: disable=too-many-locals
     return fig
 
 
-def _vis_drop_columns(  # pylint: disable=too-many-locals
-        intermediate: Intermediate
+def _vis_missing_impact(  # pylint: disable=too-many-locals
+        intermediate: Intermediate,
+        params: Dict[str, Any]
 ) -> Tabs:
     """
     :param intermediate: An object to encapsulate the
     intermediate results
     :return: A figure object
+
+    This function is designed to show histogram or bars of
+    original data and updated data
     """
     pd_data_frame = intermediate.raw_data['df']
     num_bins = intermediate.raw_data['num_bins']
@@ -75,16 +85,16 @@ def _vis_drop_columns(  # pylint: disable=too-many-locals
             hist_origin = hv.Histogram(
                 np.histogram(pd_data_frame[name].values, num_bins),
                 label='Original Data'
-            ).opts(alpha=0.3, tools=[hover])
+            ).opts(alpha=params['alpha'], tools=[hover])
             hist_drop = hv.Histogram(
                 np.histogram(df_data_drop[name].values, num_bins),
                 label='Updated Data'
-            ).opts(alpha=0.3, tools=[hover])
+            ).opts(alpha=params['alpha'], tools=[hover])
             fig = hv.render(
                 (hist_origin * hist_drop).opts(
-                    height=375,
-                    width=325,
-                    legend_position='top'
+                    height=params['height'],
+                    width=params['width'],
+                    legend_position=params['legend_position']
                 ),
                 backend='bokeh'
             )
@@ -103,16 +113,16 @@ def _vis_drop_columns(  # pylint: disable=too-many-locals
             bars_origin = hv.Bars(
                 pd_data_frame[name].value_counts(),
                 label='Original Data'
-            ).opts(alpha=0.3, tools=[hover])
+            ).opts(alpha=params['alpha'], tools=[hover])
             bars_drop = hv.Bars(
                 df_data_drop[name].value_counts(),
                 label='Updated Data'
-            ).opts(alpha=0.3, tools=[hover])
+            ).opts(alpha=params['alpha'], tools=[hover])
             fig = hv.render(
                 (bars_origin * bars_drop).opts(
-                    height=375,
-                    width=325,
-                    legend_position='top'
+                    height=params['height'],
+                    width=params['width'],
+                    legend_position=params['legend_position']
                 ),
                 backend='bokeh'
             )
@@ -129,13 +139,18 @@ def _vis_drop_columns(  # pylint: disable=too-many-locals
     return tabs
 
 
-def _vis_drop_y(  # pylint: disable=too-many-locals
-        intermediate: Intermediate
+def _vis_missing_impact_y(  # pylint: disable=too-many-locals
+        intermediate: Intermediate,
+        params: Dict[str, Any]
 ) -> Tabs:
     """
     :param intermediate: An object to encapsulate the
     intermediate results
     :return: A figure object
+
+    This function is designed to show histogram, bars, pdf or cdf of
+    original data and updated data.
+    Compared with _vis_missing_impact function, the data is y_name column
     """
     pd_data_frame = intermediate.raw_data['df']
     y_name = intermediate.raw_data['y_name']
@@ -147,8 +162,7 @@ def _vis_drop_y(  # pylint: disable=too-many-locals
     if get_type(pd_data_frame[y_name]) == DataType.TYPE_NUM:
         hist_data_origin = np.histogram(
             origin_data,
-            bins=num_bins,
-
+            bins=num_bins
         )
         hist_data_drop = np.histogram(
             drop_data,
@@ -185,37 +199,37 @@ def _vis_drop_y(  # pylint: disable=too-many-locals
             hist_data_origin,
             label='Original Data'
         ).opts(
-            alpha=0.3,
+            alpha=params['alpha'],
             tools=[hover]
         )
         hist_drop = hv.Histogram(
             hist_data_drop,
             label='Updated Data'
         ).opts(
-            alpha=0.3,
+            alpha=params['alpha'],
             tools=[hover]
         )
         fig_hist = hv.render(
             (hist_origin * hist_drop).opts(
-                height=375,
-                width=325,
-                legend_position='top'
+                height=params['height'],
+                width=params['width'],
+                legend_position=params['legend_position']
             ),
             backend='bokeh'
         )
         fig_pdf = hv.render(
             (pdf_origin * pdf_drop).opts(
-                height=375,
-                width=325,
-                legend_position='top'
+                height=params['height'],
+                width=params['width'],
+                legend_position=params['legend_position']
             ),
             backend='bokeh'
         )
         fig_cdf = hv.render(
             (cdf_origin * cdf_drop).opts(
-                height=375,
-                width=325,
-                legend_position='top'
+                height=params['height'],
+                width=params['width'],
+                legend_position=params['legend_position']
             ),
             backend='bokeh'
         )
@@ -232,8 +246,8 @@ def _vis_drop_y(  # pylint: disable=too-many-locals
             ['Group'], 'Value'
         ).opts(
             tools=[hover],
-            height=375,
-            width=350
+            height=params['height'],
+            width=params['width']
         )
         fig_box = hv.render(
             box_mixed,
@@ -249,16 +263,26 @@ def _vis_drop_y(  # pylint: disable=too-many-locals
             ('Frequency', '@c'),
         ]
         hover = HoverTool(tooltips=tooltips)
-        bars_origin = hv.Bars(pd_data_frame[y_name].value_counts()).opts(
-            alpha=0.3,
+        bars_origin = hv.Bars(
+            pd_data_frame[y_name].value_counts(),
+            label='Original Data'
+        ).opts(
+            alpha=params['alpha'],
             tools=[hover]
         )
-        bars_drop = hv.Bars(df_data_drop[y_name].value_counts()).opts(
-            alpha=0.3,
+        bars_drop = hv.Bars(
+            df_data_drop[y_name].value_counts(),
+            label='Updated Data'
+        ).opts(
+            alpha=params['alpha'],
             tools=[hover]
         )
         fig_bars = hv.render(
-            bars_origin * bars_drop,
+            (bars_origin * bars_drop).opts(
+                height=params['height'],
+                width=params['width'],
+                legend_position=params['legend_position']
+            ),
             backend='bokeh'
         )
         tab_bars = Panel(child=fig_bars, title='bars')
