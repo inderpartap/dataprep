@@ -28,7 +28,7 @@ def _discard_unused_visual_elems(
 
 def _vis_correlation_pd(  # pylint: disable=too-many-locals
         intermediate: Intermediate,
-        **params: Dict[str, Any]
+        params: Dict[str, Any]
 ) -> Tabs:
     """
     :param intermediate: An object to encapsulate the
@@ -92,7 +92,7 @@ def _vis_correlation_pd(  # pylint: disable=too-many-locals
 
 def _vis_correlation_pd_x_k(  # pylint: disable=too-many-locals
         intermediate: Intermediate,
-        **params: Dict[str, Any]
+        params: Dict[str, Any]
 ) -> Tabs:
     """
     :param intermediate: An object to encapsulate the
@@ -183,7 +183,7 @@ def _vis_correlation_pd_x_k(  # pylint: disable=too-many-locals
 
 def _vis_correlation_pd_x_y_k(
         intermediate: Intermediate,
-        **params: Dict[str, Any]
+        params: Dict[str, Any]
 ) -> Figure:
     """
     :param intermediate: An object to encapsulate the
@@ -254,7 +254,7 @@ def _vis_correlation_pd_x_y_k(
 
 def _vis_cross_table(
         intermediate: Intermediate,
-        **params: Dict[str, Any]
+        params: Dict[str, Any]
 ) -> Figure:
     """
     :param intermediate: An object to encapsulate the
