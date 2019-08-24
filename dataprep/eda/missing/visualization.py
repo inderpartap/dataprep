@@ -11,8 +11,9 @@ from bokeh.models import HoverTool
 from bokeh.models.annotations import Title
 from bokeh.models.widgets import Panel, Tabs
 from bokeh.plotting import Figure
-from dataprep.eda.common import Intermediate
-from dataprep.utils import get_type, DataType
+
+from ...utils import DataType, get_type
+from ..common import Intermediate
 
 
 def _vis_nonzero_count(  # pylint: disable=too-many-locals

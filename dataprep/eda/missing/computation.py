@@ -2,7 +2,7 @@
     This module implements the plot_missing(df) function's
     calculating intermediate part
 """
-from typing import Any, Optional, Union, Tuple
+from typing import Any, Optional, Tuple, Union
 
 import dask
 import numpy as np
@@ -10,10 +10,11 @@ import pandas as pd
 from bokeh.io import show
 from bokeh.models.widgets import Tabs
 from bokeh.plotting import Figure
-from dataprep.eda.common import Intermediate
-from dataprep.eda.vis_plot_miss import _vis_nonzero_count, \
-    _vis_missing_impact, _vis_missing_impact_y
-from dataprep.utils import get_type, DataType
+
+from ...utils import DataType, get_type
+from ..common import Intermediate
+from .visualization import (_vis_missing_impact, _vis_missing_impact_y,
+                            _vis_nonzero_count)
 
 
 def _calc_nonzero_rate(

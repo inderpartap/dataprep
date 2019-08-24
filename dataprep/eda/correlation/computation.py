@@ -1,7 +1,8 @@
 """
-    This module implements the plot_corr(df) function.
+    This module implements the intermediates computation
+    for plot_correlation(df) function.
 """
-from typing import Any, Optional, Union, Tuple, Dict, List
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import dask
 import numpy as np
@@ -10,10 +11,11 @@ from bokeh.io import show
 from bokeh.models.widgets import Tabs
 from bokeh.plotting import Figure
 from scipy.stats import kendalltau
-from dataprep.eda.common import Intermediate
-from dataprep.eda.vis_plot_corr import _vis_correlation_pd, _vis_correlation_pd_x_k, \
-    _vis_correlation_pd_x_y_k, _vis_cross_table
-from dataprep.utils import _drop_non_numerical_columns, DataType, get_type
+
+from ...utils import DataType, _drop_non_numerical_columns, get_type
+from ..common import Intermediate
+from .visualization import (_vis_correlation_pd, _vis_correlation_pd_x_k,
+                            _vis_correlation_pd_x_y_k, _vis_cross_table)
 
 
 def merge_dicts(

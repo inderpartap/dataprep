@@ -13,6 +13,8 @@ import pandas as pd
 from ..utils import DataType, get_type
 from . import DEFAULT_PARTITIONS
 
+__all__ = ["plot"]
+
 # Type aliasing
 StringList = List[str]
 

@@ -1,17 +1,18 @@
 """
-    This module implements the plot_corr(df) function's
-    visualization part.
+    This module implements the visualization for
+    plot_correlation(df) function
 """
+import math
 from typing import Any, Dict
 
-import math
 import holoviews as hv
 import numpy as np
 from bokeh.models import HoverTool
 from bokeh.models.annotations import Title
 from bokeh.models.widgets import Panel, Tabs
-from bokeh.plotting import figure, Figure
-from dataprep.eda.common import Intermediate
+from bokeh.plotting import Figure, figure
+
+from ..common import Intermediate
 
 
 def _discard_unused_visual_elems(

@@ -9,7 +9,7 @@ import dask
 import numpy as np
 import pandas as pd
 
-from ...eda.eda_plot_miss import plot_missing
+from ...eda import plot_missing
 
 
 def _calc_none_sum(

@@ -2,12 +2,14 @@
 """Docstring
     Data preparation module
 """
-import logging
 import tempfile
 
 from bokeh.io import output_file, output_notebook
 
 from ..utils import _rand_str, is_notebook
+from .plot import plot
+from .correlation import plot_correlation
+from .missing import plot_missing
 
 # Dask Default partitions
 DEFAULT_PARTITIONS = 1
