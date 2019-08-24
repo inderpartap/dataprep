@@ -11,9 +11,6 @@ from .plot import plot
 from .correlation import plot_correlation
 from .missing import plot_missing
 
-# Dask Default partitions
-DEFAULT_PARTITIONS = 1
-
 if is_notebook():
     output_notebook(hide_banner=True)
 else:
