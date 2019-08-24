@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from ..utils import DataType, get_type
-from . import DEFAULT_PARTITIONS
+DEFAULT_PARTITIONS = 1
 
 __all__ = ["plot"]
 
