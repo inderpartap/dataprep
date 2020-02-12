@@ -1,23 +1,23 @@
-## <a name="rules"></a> Coding Rules
+## Coding Rules
 
 Dataprep follows angular commit naming style:
 
 To ensure consistency throughout the source code, keep these rules in mind as you are working:
 
 * All features or bug fixes **must be tested** by one or more specs (unit-tests).
-* All public API methods **must be documented**. (TODO when we start setting up the doc building tool)
+* All public API methods **must be documented**.
 * Do not delete the code of others. If it is necessary, make a comment to illustrate the reason.
 * One pull request for only **one** functionality. If the functionality depends on the code that has not been merged, fork the related branch and finish the functionality.
 * Work in progress pull request should have a '**WIP**' before the pull request title.
 * Please do not include merge commits in your Pull Request. Instead, use `git rebase` to make the commit history linear.
 
-## <a name="commit"></a> Commit Message Guidelines
+## Commit Message Guidelines
 
 We have very precise rules over how our git commit messages can be formatted.  This leads to **more
 readable messages** that are easy to follow when looking through the **project history**.
 
 ### Commit Message Format
-Each commit message consists of a **header**, a **body** and a **footer**.  The header has a special
+Each commit message consists of a **header**, a **body** (optional) and a **footer** (optional).  The header has a special
 format that includes a **type**, a **scope** and a **subject**:
 
 ```
@@ -66,8 +66,10 @@ Must be one of the following:
 ### Scope
 The scope should be the name of the component affected (as perceived by the person reading the changelog generated from commit messages).
 
-The following is the list of supported scopes:
+The following is the list of currently supported scopes:
 
 * **dataprep**: modification to the whole project, seldom used.
-* **eda.plot**
-* TODO
+* **eda.plot**:
+* **eda.plot_correlation**:
+* **eda.plot_missing**
+* **data_connector**
