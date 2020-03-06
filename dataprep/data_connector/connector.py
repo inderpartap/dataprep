@@ -203,3 +203,30 @@ class Connector:
         print("\nother methods:")
         print(">>>", "dc.table_names")
         print(">>>", "dc.show_schema('table name')")
+
+    def show_schema(self, table_name: str) -> pd.DataFrame:
+        """
+        Show the returned schema of a table
+
+        Parameters
+        ----------
+        table_name : str
+            The table name.
+
+        Returns
+        -------
+            pd.DataFrame
+        """
+        print("table:", table_name)
+        table_config_content = self.impdb.tables[table_name].config
+        schema = table_config_content["response"]["schema"]
+        new_schema_dict: Dict[str, List[Any]] = {}
+        count = 0
+        new_schema_dict["column_name"] = []
+        new_schema_dict["data_type"] = []
+        for k in schema.keys():
+            new_schema_dict["column_name"].append(k)
+            new_schema_dict["data_type"].append(schema[k]["type"])
+            count += 1
+            # print("attribute name:", k, ", data type:", schema[k]['type'])
+        return pd.DataFrame.from_dict(new_schema_dict)
